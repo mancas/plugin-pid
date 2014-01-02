@@ -98,7 +98,7 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener
 		_b.setTitle("_b");
 		_b.show();
 		IJ.selectWindow("_b");
-		IJ.run("Subtract...", "value="+50);
+		IJ.run("Subtract...", "value="+h);
 		IJ.run("GreyscaleReconstruct ", "mask=Green_Channel seed=_b create");
 		ImagePlus reconstructed = WindowManager.getImage("Reconstructed");
 		IJ.selectWindow("Reconstructed");
