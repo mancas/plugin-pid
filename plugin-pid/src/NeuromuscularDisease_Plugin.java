@@ -1,33 +1,50 @@
 import java.awt.BorderLayout;
+import java.awt.FlowLayout;
 import java.awt.TextArea;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.ScrollPaneConstants;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.WindowManager;
 import ij.gui.NewImage;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.ColorProcessor;
 import ij.process.ImageProcessor;
 
 
-public class NeuromuscularDisease_Plugin implements PlugInFilter {
+public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener {
 	
 	private ImagePlus imp;
 	private ImagePlus greenChannel;
 	private Integer averageIntensityGreen;
 	private JFrame tutorialFrame;
+	private JTextArea descriptionField;
+	private int count;
 
 	public void run(ImageProcessor ip) {
-		this.greenChannel = this.getGreenChannel(ip);
-		Integer h = this.getAverageIntensity(this.greenChannel);
-		
+		this.greenChannel = this.getGreenChannel(ip);		
 		this.greenChannel.show();
-		//this.createTutorialFrame();
-		//this.tutorialFrame.setVisible(true);
-		this.hMinima(this.greenChannel, h/2);
+		this.createTutorialFrame();
+		this.tutorialFrame.setVisible(true);
 	}
+	
+
+	public int setup(String arg, ImagePlus imp) {
+		this.imp = imp;
+		this.count = 0;
+//TODO Filter non rgb images
+		return DOES_ALL;
+	}
+
 	
 	/*
 	 * @param ImageProcessor
@@ -35,7 +52,7 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter {
 	 */
 	private ImagePlus getGreenChannel(ImageProcessor ip)
 	{
-		ColorProcessor cp = ip.convertToColorProcessor();
+		ColorProcessor cp = (ColorProcessor) ip;
 		int width = ip.getWidth();
 		int height = ip.getHeight();
 		byte[] green = new byte[width*height];
@@ -78,17 +95,21 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter {
 	private void hMinima(ImagePlus ip, int h)
 	{
 		ImagePlus _b = ip.duplicate();
-		System.out.println(ip.getTitle());
 		_b.setTitle("_b");
 		_b.show();
-		System.out.print(h);
 		IJ.selectWindow("_b");
 		IJ.run("Subtract...", "value="+50);
 		IJ.run("GreyscaleReconstruct ", "mask=Green_Channel seed=_b create");
-		IJ.selectWindow("Green_Channel");
-		IJ.run("Invert");
+		ImagePlus reconstructed = WindowManager.getImage("Reconstructed");
 		IJ.selectWindow("Reconstructed");
+		reconstructed.setTitle("hMinima transform");
 		IJ.run("Invert");
+		//These lines allow us to close the temp img without been saved
+		_b.changes = false;
+		_b.close();
+		IJ.run("Domes ", "height=1 basins");
+		IJ.setThreshold(1, 255);
+		IJ.run("Convert to Mask");
 	}
 	
 	/*
@@ -99,22 +120,50 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter {
 		JFrame frame = new JFrame("Tutorial");
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
+		/** Main panel which contains the textarea and the next step button */
+		JPanel topPanel = new JPanel();
+		topPanel.setLayout(new BoxLayout(topPanel, BoxLayout.Y_AXIS));
+		topPanel.setOpaque(true);
+		
 		/** Textarea to explain the algorithm */
-		TextArea ta = new TextArea(10, 25);
+		this.descriptionField = new JTextArea(10, 25);
+		this.descriptionField.setText("El primer paso es obtener la matriz del canal verde, ya que es la que más contraste ofrece.");
+		this.descriptionField.setEditable(false);
+		this.descriptionField.setWrapStyleWord(true);
+		this.descriptionField.setLineWrap(true);
+		
+		JScrollPane scroller = new JScrollPane(this.descriptionField);
+		scroller.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+		scroller.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+	
 		
 		/** Button to perform algorithm step by step */
+		JPanel buttonPanel = new JPanel();
+		buttonPanel.setLayout(new FlowLayout());
 		JButton next = new JButton("Siguiente paso");
+		next.addActionListener(this);
 		
-		frame.getContentPane().add(ta, BorderLayout.CENTER);
-		frame.getContentPane().add(next, BorderLayout.CENTER);
+		//Adding elements to their correspond panels
+		topPanel.add(scroller);
+		buttonPanel.add(next);
+		topPanel.add(buttonPanel);
+		
+		frame.getContentPane().add(BorderLayout.CENTER, topPanel);
 		frame.pack();
-		this.tutorialFrame = frame;		
+		frame.setResizable(false);
+		this.tutorialFrame = frame;
 	}
 
-	public int setup(String arg, ImagePlus imp) {
-		this.imp = imp;
-
-		return DOES_ALL;
+	public void actionPerformed(ActionEvent e) {
+		this.count++;
+		switch (this.count) {
+		case 1:
+			this.descriptionField.setText("Una vez obtenida la matriz del canal verde, aplicamos el algoritmo H-Minima extendido para obtener la separación de las células.");
+			Integer h = this.getAverageIntensity(this.greenChannel);
+			this.hMinima(this.greenChannel, h/2);
+			break;
+		}
+		
 	}
 
 }
