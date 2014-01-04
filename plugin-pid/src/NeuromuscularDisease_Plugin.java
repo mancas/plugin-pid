@@ -1,6 +1,5 @@
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
-import java.awt.TextArea;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -14,6 +13,7 @@ import javax.swing.ScrollPaneConstants;
 
 import ij.IJ;
 import ij.ImagePlus;
+import ij.Prefs;
 import ij.WindowManager;
 import ij.gui.NewImage;
 import ij.plugin.filter.PlugInFilter;
@@ -31,6 +31,10 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener
 	private int count;
 
 	public void run(ImageProcessor ip) {
+		//We need to check if the current image is RGB or not.
+		if (imp.getBitDepth() != 64) {
+			IJ.showMessage("Neuromuscular Disease", "Debe seleccionar una imagen RGB.");
+		}
 		this.greenChannel = this.getGreenChannel(ip);		
 		this.greenChannel.show();
 		this.createTutorialFrame();
@@ -41,7 +45,7 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener
 	public int setup(String arg, ImagePlus imp) {
 		this.imp = imp;
 		this.count = 0;
-//TODO Filter non rgb images
+
 		return DOES_ALL;
 	}
 
@@ -107,9 +111,14 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener
 		//These lines allow us to close the temp img without been saved
 		_b.changes = false;
 		_b.close();
-		IJ.run("Domes ", "height=1 basins");
-		IJ.setThreshold(1, 255);
-		IJ.run("Convert to Mask");
+		//IJ.run("Domes ", "height=1 basins");
+		//IJ.setThreshold(1, 255);
+		//IJ.run("Convert to Mask");
+		//IJ.run("Threshold", "method=Percentile mode=B&W");
+		//Set threshold
+		IJ.setAutoThreshold(reconstructed, "Percentile");
+		Prefs.blackBackground = false;
+		IJ.run(reconstructed, "Convert to Mask", "");
 	}
 	
 	/*
@@ -160,7 +169,7 @@ public class NeuromuscularDisease_Plugin implements PlugInFilter, ActionListener
 		case 1:
 			this.descriptionField.setText("Una vez obtenida la matriz del canal verde, aplicamos el algoritmo H-Minima extendido para obtener la separación de las células.");
 			Integer h = this.getAverageIntensity(this.greenChannel);
-			this.hMinima(this.greenChannel, h/2);
+			this.hMinima(this.greenChannel, (2*h)/3);
 			break;
 		}
 		
